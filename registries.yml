@@ -1,0 +1,4 @@
+mirrors:
+  "rac.registry:5000":
+    endpoint:
+      - http://rac.registry:5000
