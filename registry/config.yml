@@ -16,13 +16,19 @@ health:
     enabled: true
     interval: 10s
     threshold: 3
+auth:
+  token:
+    realm: http://rac.api:8090/auth
+    service: rac.registry
+    issuer: rac.api
+    rootcertbundle: /var/jwt.cert
 notifications:
   events:
     includereferences: true
   endpoints:
     - name: alistener
       disabled: false
-      url: http://rac.notifications:8090/
+      url: http://rac.api:8090/notification
       timeout: 1s
       threshold: 10
       backoff: 1s

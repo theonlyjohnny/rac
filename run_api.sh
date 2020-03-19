@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-if docker ps | grep rac.notifications; then
-  docker rm -f rac.notifications
+if docker ps | grep rac.api; then
+  docker rm -f rac.api
 fi
 
 until k3d get-kubeconfig --name='k3s-default'; do
@@ -21,11 +21,11 @@ done
 
 kubectl get secrets $(kubectl get secrets | grep "default-token" | cut -d' ' -f 1) -o go-template='{{index .data "ca.crt" | base64decode}}' > ./ca.crt
 
-echo "building notifications"
+echo "building api"
 set -x
-docker build -t rac.notifications:local -f Dockerfile.notifications --build-arg KUBECONFIG=./kubeconfig --build-arg K3D_CERT=./ca.crt .
+docker build -t rac.api:local -f Dockerfile.api --build-arg KUBECONFIG=./kubeconfig --build-arg K3D_CERT=./ca.crt .
 
 
 rm ./kubeconfig ./ca.crt
 
-docker run --rm --name rac.notifications --network k3d-k3s-default rac.notifications:local
+docker run --rm --name rac.api --network k3d-k3s-default -p 8090:8090 -v `pwd`/jwt.key:/var/jwt.key rac.api:local
