@@ -1,2 +1,2 @@
-./kubeconfig
-./ca.crt
+kubeconfig
+ca.crt
