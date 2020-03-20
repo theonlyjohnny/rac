@@ -5,6 +5,7 @@ import "fmt"
 type DAO interface {
 	GetRepo(name string) (*Repo, error)
 	ClaimRepo(name string, owner *User) error
+	SaveRepo(repo *Repo) error
 }
 
 type daoImpl struct {
@@ -12,17 +13,17 @@ type daoImpl struct {
 }
 
 func NewDAO() DAO {
-	return daoImpl{
+	return &daoImpl{
 		repos: make(map[string]*Repo),
 	}
 }
 
-func (d daoImpl) GetRepo(name string) (*Repo, error) {
+func (d *daoImpl) GetRepo(name string) (*Repo, error) {
 	r, _ := d.repos[name]
 	return r, nil
 }
 
-func (d daoImpl) ClaimRepo(name string, owner *User) error {
+func (d *daoImpl) ClaimRepo(name string, owner *User) error {
 	r, ok := d.repos[name]
 	if !ok {
 		return fmt.Errorf("unknown repo %s", name)
@@ -34,5 +35,10 @@ func (d daoImpl) ClaimRepo(name string, owner *User) error {
 
 	r.Owner = owner
 	d.repos[name] = r
+	return nil
+}
+
+func (d *daoImpl) SaveRepo(repo *Repo) error {
+	d.repos[repo.Name] = repo
 	return nil
 }

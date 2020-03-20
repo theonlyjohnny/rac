@@ -15,4 +15,4 @@ ARG K3D_CERT
 COPY $K3D_CERT /usr/local/share/ca-certificates/k3d.crt
 RUN update-ca-certificates
 
-ENTRYPOINT /var/go/api
+ENTRYPOINT ["/var/go/api"]

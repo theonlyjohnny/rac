@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/theonlyjohnny/rac/api/internal/storage"
 
 	"github.com/docker/distribution/notifications"
 
@@ -25,7 +26,15 @@ func (a *API) postNotification(c *gin.Context) {
 			for _, d := range e.Target.References {
 				if d.MediaType == "application/vnd.docker.container.image.v1+json" {
 					fmt.Printf("Pushed tag %s of %s from %s \n", e.Target.Tag, e.Target.Repository, e.Request.Addr)
-					a.triggerUpdate(e.Target.Repository, e.Target.Tag)
+					repo := &storage.Repo{Name: e.Target.Repository}
+					if err := a.dao.SaveRepo(repo); err != nil {
+						fmt.Printf("Failed to save repo %v -- %s\n", repo, err.Error())
+						return
+					}
+					if err := a.triggerUpdate(e.Target.Repository, e.Target.Tag); err != nil {
+						fmt.Printf("Failed to trigger update for repo %v -- %s\n", repo, err.Error())
+						return
+					}
 				}
 			}
 		}

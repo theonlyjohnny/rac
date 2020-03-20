@@ -8,19 +8,24 @@ import (
 
 	"github.com/docker/distribution/registry/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/theonlyjohnny/rac/api/internal/storage"
 )
 
 var typeRegexp = regexp.MustCompile(`^([a-z0-9]+)(\([a-z0-9]+\))?$`)
 
 func (a *API) getAuth(c *gin.Context) {
+	user := &storage.User{"py_owner"}
+
 	q := c.Request.URL.Query()
 	accessRequests := resolveScopeSpecifiers(q["scope"])
 
-	permitted, err := a.auth.FilterAccessRequests(nil, accessRequests)
+	permitted, err := a.auth.FilterAccessRequests(user, accessRequests)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
+
+	fmt.Printf("user %s got access filtered: %s -> %s \n", user, accessRequests, permitted)
 	token, err := a.token.CreateTokenForAcess(permitted)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})

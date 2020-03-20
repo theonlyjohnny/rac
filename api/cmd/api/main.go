@@ -11,13 +11,10 @@ import (
 	"time"
 
 	"github.com/theonlyjohnny/rac/api/internal/api"
-	"github.com/theonlyjohnny/rac/api/internal/storage"
 )
 
 func main() {
-	dao := storage.NewDAO()
-
-	api, err := api.NewAPI(dao)
+	api, err := api.NewAPI()
 	if err != nil {
 		panic(fmt.Errorf("failed to setup API: %s", err.Error()))
 	}
@@ -36,16 +33,20 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	fmt.Println("Shutting down server")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	fmt.Println("Shutting down HTTP server")
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		fmt.Printf("Failed to shutdown HTTP server cleanly :( -- %s", err.Error())
 	}
+	cancel()
 
 	select {
 	case <-ctx.Done():
-		fmt.Println("server shutdown timed out after 5 sec")
+		if ctx.Err().Error() == "context cancelled" {
+			fmt.Println("server shutdown:", ctx.Err())
+		}
 	}
 
 	fmt.Println("exiting")

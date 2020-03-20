@@ -28,7 +28,10 @@ type API struct {
 	Router *gin.Engine
 }
 
-func NewAPI(dao storage.DAO) (*API, error) {
+func NewAPI() (*API, error) {
+
+	dao := storage.NewDAO()
+
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(os.Getenv("HOME"), ".kube", "config.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load ~/.kube/config.yaml -- %s", err.Error())
@@ -47,7 +50,7 @@ func NewAPI(dao storage.DAO) (*API, error) {
 		return nil, fmt.Errorf("Failed to create token manager -- %s", err.Error())
 	}
 
-	authenticator := auth.NewAuthenticator()
+	authenticator := auth.NewAuthenticator(dao)
 
 	r := gin.Default()
 	api := &API{
@@ -62,6 +65,7 @@ func NewAPI(dao storage.DAO) (*API, error) {
 	}
 
 	r.POST("/notification", api.postNotification)
+	r.POST("claim", api.postClaim)
 	r.GET("/auth", api.getAuth)
 	return api, nil
 }
