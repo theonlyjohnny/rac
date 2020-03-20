@@ -1,12 +1,34 @@
-package auth
+package api
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/docker/distribution/registry/auth"
+	"github.com/gin-gonic/gin"
 )
+
+var typeRegexp = regexp.MustCompile(`^([a-z0-9]+)(\([a-z0-9]+\))?$`)
+
+func (a *API) getAuth(c *gin.Context) {
+	q := c.Request.URL.Query()
+	accessRequests := resolveScopeSpecifiers(q["scope"])
+
+	permitted, err := a.auth.FilterAccessRequests(nil, accessRequests)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+	token, err := a.token.CreateTokenForAcess(permitted)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}
 
 //Stolen from https://github.com/docker/distribution/contrib/token-server/token.go
 func resolveScopeSpecifiers(scopeSpecs []string) []auth.Access {
@@ -51,8 +73,6 @@ func resolveScopeSpecifiers(scopeSpecs []string) []auth.Access {
 
 	return requestedAccessList
 }
-
-var typeRegexp = regexp.MustCompile(`^([a-z0-9]+)(\([a-z0-9]+\))?$`)
 
 func splitResourceClass(t string) (string, string) {
 	matches := typeRegexp.FindStringSubmatch(t)

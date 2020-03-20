@@ -1,15 +1,38 @@
-package notification
+package api
 
 import (
 	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/docker/distribution/notifications"
 
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apptypesv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 )
 
-func TriggerUpdate(deployments apptypesv1.DeploymentInterface, repo, tag string) error {
+func (a *API) postNotification(c *gin.Context) {
+	var body notifications.Envelope
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, e := range body.Events {
+		if e.Action == "push" {
+			for _, d := range e.Target.References {
+				if d.MediaType == "application/vnd.docker.container.image.v1+json" {
+					fmt.Printf("Pushed tag %s of %s from %s \n", e.Target.Tag, e.Target.Repository, e.Request.Addr)
+					a.triggerUpdate(e.Target.Repository, e.Target.Tag)
+				}
+			}
+		}
+	}
+}
+
+func (a *API) triggerUpdate(repo, tag string) error {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: repo,
@@ -47,7 +70,7 @@ func TriggerUpdate(deployments apptypesv1.DeploymentInterface, repo, tag string)
 		},
 	}
 
-	_, err := deployments.Create(deployment)
+	_, err := a.deployments.Create(deployment)
 	if err != nil {
 		return fmt.Errorf("Failed to create deployment: %s", err.Error())
 	}
@@ -55,8 +78,6 @@ func TriggerUpdate(deployments apptypesv1.DeploymentInterface, repo, tag string)
 	fmt.Printf("Creating deployment of %s:%s \n", repo, tag)
 
 	return nil
-
-	// fmt.Printf("res: %v\n", res)
 }
 
 func int32Ptr(i int32) *int32 { return &i }

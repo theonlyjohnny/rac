@@ -1,41 +1,61 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 
-	"github.com/theonlyjohnny/rac/api/internal/auth"
-	"github.com/theonlyjohnny/rac/api/internal/notification"
-	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"github.com/theonlyjohnny/rac/api/internal/api"
+	"github.com/theonlyjohnny/rac/api/internal/storage"
 )
 
 func main() {
+	dao := storage.NewDAO()
 
-	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(os.Getenv("HOME"), ".kube", "config.yaml"))
+	api, err := api.NewAPI(dao)
 	if err != nil {
-		panic(err.Error())
+		panic(fmt.Errorf("failed to setup API: %s", err.Error()))
 	}
 
-	// fmt.Printf("%#v \n", config)
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%s", getPort()),
+		Handler: api.Router,
 	}
 
-	deployments := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(err)
+		}
+	}()
 
-	http.HandleFunc("/notification", notification.Handler(deployments))
-	http.HandleFunc("/auth", auth.Handler)
-
-	fmt.Println("running")
-
-	if err := http.ListenAndServe(":8090", nil); err != nil {
-		panic(err)
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	fmt.Println("Shutting down server")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Printf("Failed to shutdown HTTP server cleanly :( -- %s", err.Error())
 	}
+
+	select {
+	case <-ctx.Done():
+		fmt.Println("server shutdown timed out after 5 sec")
+	}
+
+	fmt.Println("exiting")
+}
+
+func getPort() string {
+	if v := os.Getenv("PORT"); v != "" {
+		if _, err := strconv.Atoi(v); err != nil {
+			return v
+		}
+	}
+	return "8090"
 }

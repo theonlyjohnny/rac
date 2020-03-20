@@ -7,6 +7,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
+	github.com/gin-gonic/gin v1.5.0
 	github.com/golang/protobuf v1.3.4 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
