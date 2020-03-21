@@ -11,6 +11,8 @@
  - Sign up unlocks Build step, and further config around your deployment
  - Anyone can push to any repo on RAC registry, unless its been claimed by a registered user
 	 - means if you don't sign up, you don't have guaranteed control over your repo monkaS
+- For now HTTP only. In future maybe there's like an API or smth for other work, but not worried about that rn
+- Can bill based on invocations or run time or smth -- should be a free plan for minimal workload tho
 ## Deploy
  - Run a Docker Registry w/ [token auth](https://docs.docker.com/registry/spec/auth/token/), [S3 storage](https://docs.docker.com/registry/storage-drivers/s3/), and [notifications](https://docs.docker.com/registry/notifications/)
  - Token auth gives all the auth power to RAC API, which prevents logged out users from pushing to claimed repositories (and allows users to login to push to their repos)
@@ -44,7 +46,10 @@
 - `./test.sh` builds a basic image and pushes it to local registry -- should cause a deployment on the local K3D cluster
 ## Build
 - nothing m8
-
+# Next steps
+- how does the Deploy step actually spin up containers when requests come in?
+- read the ports and volumes from image to configure containers
+-  rn it runs on one box, need to define the actual architecture for deployed
 # Useful Commands
 ## JWT
 The registry and API use an x509 cert to sign JWTs, use this command to generate a new cert & private key:
