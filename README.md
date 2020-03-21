@@ -49,7 +49,9 @@
 # Next steps
 - how does the Deploy step actually spin up containers when requests come in?
 - read the ports and volumes from image to configure containers
--  rn it runs on one box, need to define the actual architecture for deployed
+- rn it runs on one box, need to define the actual architecture for deployed
+- need to figure out how to correlate a docker client to a RAC user -- I think in JWT from RAC API u put a user_id in the claims, and then that token is used in following requests. verify JWT token is signed w/ JWT private key, and then u can trust the user_id
+	- but how do you know what user_id to assign a given client :thinking:
 # Useful Commands
 ## JWT
 The registry and API use an x509 cert to sign JWTs, use this command to generate a new cert & private key:
