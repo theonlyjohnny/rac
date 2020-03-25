@@ -8,31 +8,98 @@ import (
 
 	"github.com/docker/distribution/registry/auth"
 	"github.com/gin-gonic/gin"
-	"github.com/theonlyjohnny/rac/api/internal/storage"
+	racAuth "github.com/theonlyjohnny/rac/api/internal/auth"
 )
 
 var typeRegexp = regexp.MustCompile(`^([a-z0-9]+)(\([a-z0-9]+\))?$`)
 
-func (a *API) getAuth(c *gin.Context) {
-	user := &storage.User{"py_owner"}
+type doAuthRequest struct {
+	Account string ` form:"account"`
+	// ClientID     string `form:"client_id"`
+	OfflineToken bool `form:"offline_token"`
+	// Service      string
+	Scope []string `form:"scope"`
+}
 
-	q := c.Request.URL.Query()
-	accessRequests := resolveScopeSpecifiers(q["scope"])
+func (a *API) doAuth(c *gin.Context) {
 
-	permitted, err := a.auth.FilterAccessRequests(user, accessRequests)
+	body := doAuthRequest{}
+	if err := c.ShouldBind(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("doAuth %#v \n", body)
+
+	providedCredsI, _ := c.Get(authedUserCtxKey)
+	providedCreds, ok := providedCredsI.(racAuth.ProvidedCredentials)
+	fmt.Printf("ProvidedCredentials:%#v\n", providedCreds)
+	if !ok {
+		c.Header("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\"", "http://rac.api:8090/auth"))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "must provide Basic credentials or refresh_token"})
+		return
+	}
+
+	if providedCreds.Username != body.Account {
+		c.Header("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\"", "http://rac.api:8090/auth"))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "username and account don't match"})
+		return
+	}
+
+	user, err := a.auth.AuthenticateCredentials(providedCreds)
+	fmt.Printf("authenticated to user: %s, err :%s \n", user, err)
+	if err != nil || user == nil {
+		//TODO make docker client show proper "invalid credentials" message here
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	var (
+		refresh   string
+		permitted []auth.Access
+	)
+
+	if len(body.Scope) > 0 {
+		accessRequests := resolveScopeSpecifiers(body.Scope)
+		permitted, err = a.auth.FilterAccessRequests(user, accessRequests)
+		fmt.Printf("user %s got access filtered: %s -> %s \n", user, accessRequests, permitted)
+	} else {
+		fmt.Printf("user %s is logging in \n", user)
+		//docker login
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
 
-	fmt.Printf("user %s got access filtered: %s -> %s \n", user, accessRequests, permitted)
+	if body.OfflineToken {
+		refresh, err = a.auth.CreateRefreshToken(user)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
 	token, err := a.token.CreateTokenForAcess(permitted)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	resp := gin.H{
+		// support older clients by specifying both token and access_token
+		"token":        token,
+		"access_token": token,
+	}
+
+	if refresh != "" {
+		resp["refresh_token"] = refresh
+	}
+
+	fmt.Printf("resp: %#v \n", resp)
+	c.JSON(http.StatusOK, resp)
 }
 
 //Stolen from https://github.com/docker/distribution/contrib/token-server/token.go

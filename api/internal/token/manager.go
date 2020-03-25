@@ -51,8 +51,9 @@ func NewTokenManager(keyPath string) (TokenManager, error) {
 	return &tokenManagerImpl{
 		privateKey: privateKey,
 		kid:        kid,
-		issuer:     "rac.api", //fqdn
-		audience:   "rac.registry",
+
+		issuer:   "rac.api", //fqdn
+		audience: "rac.registry",
 	}, nil
 }
 
